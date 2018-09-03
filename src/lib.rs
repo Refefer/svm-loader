@@ -67,17 +67,17 @@ impl TargetReader for Tags {
 
 
 pub struct Row<T,F> {
-    pub x: F,
     pub y: T,
+    pub x: F,
     pub qid: Option<usize>,
     pub comment: Option<String>,
 }
 
 impl <T,F> Row<T,F> {
-    pub fn new(x: F, y: T, qid: Option<usize>, comment: Option<String>) -> Self {
+    pub fn new(y: T, x: F, qid: Option<usize>, comment: Option<String>) -> Self {
         Row {
-            x: x,
             y: y,
+            x: x,
             qid: qid,
             comment: comment
         }
@@ -105,8 +105,7 @@ impl <'a, TR: 'a + TargetReader, P: 'a + DataParse> Iterator for Reader<'a, TR, 
             self.tl.clear();
             if let Ok(size) = self.br.read_line(&mut self.tl) {
                 if size == 0 { return None }
-                let res = parse_line(self.tr, self.p, &self.tl)
-                    .map(|x| Row::new(x.1, x.0, None, None));
+                let res = parse_line(self.tr, self.p, &self.tl);
 
                 if res.is_some() { return res }
 
@@ -117,10 +116,26 @@ impl <'a, TR: 'a + TargetReader, P: 'a + DataParse> Iterator for Reader<'a, TR, 
     }
 }
 
-fn parse_line<TR: TargetReader, DP: DataParse>(tr: &TR, dp: &DP, line: &str) -> Option<(TR::Out, DP::Out)> {
+struct IterCons<X,I>(Option<X>, I);
+
+impl <X, I: Iterator<Item=X>> Iterator for IterCons<X, I> {
+    type Item = X;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.0.is_some() {
+            self.0.take()
+        } else {
+            self.1.next()
+        }
+    }
+}
+
+pub fn parse_line<TR: TargetReader, DP: DataParse>(tr: &TR, dp: &DP, line: &str) -> Option<Row<TR::Out,DP::Out>> {
     let has_target = !line.starts_with(' ');
     // Remove comments
-    let line = line.split('#').next().unwrap();
+    let mut data = line.split('#');
+    let line = data.next().unwrap();
+    let comment = data.next().map(|x| x.to_owned());
     let mut pieces = line.trim().split_whitespace();
     let target = if has_target {
         pieces.next().and_then(|x| tr.process(x))
@@ -128,10 +143,21 @@ fn parse_line<TR: TargetReader, DP: DataParse>(tr: &TR, dp: &DP, line: &str) -> 
         tr.process("")
     };
 
-    let vec = dp.parse(pieces);
+    // Check for qid
+    let maybe_qid = pieces.next();
+    let qid: Option<usize> = maybe_qid.and_then(|qid| {
+        if qid.starts_with("qid:") {
+            let mut p = qid.split(':').skip(1);
+            p.next().unwrap().parse().ok()
+        } else {
+            None
+        }
+    });
+    let peeked = IterCons(maybe_qid, pieces);
+    let vec = dp.parse(peeked);
 
     match (target, vec) {
-        (Some(s), Some(v)) => Some((s,  v)),
+        (Some(y), Some(x)) => Some(Row::new(y, x, qid, comment)),
         _ => None
     }
 }

@@ -1,0 +1,6 @@
+[package]
+name = "svmloader"
+version = "0.1.0"
+authors = ["Andrew Stanton <astanton@etsy.com>"]
+
+[dependencies]

@@ -1,5 +1,6 @@
 pub mod types;
 
+use std::fmt::Debug;
 use std::collections::HashSet;
 use std::fs::File;
 use std::io::{BufReader,BufRead,Error};
@@ -7,7 +8,7 @@ use std::io::{BufReader,BufRead,Error};
 use types::DataParse;
 
 pub trait TargetReader {
-    type Out;
+    type Out: Debug;
 
     fn process(&self, data: &str) -> Option<Self::Out>;
 }
@@ -153,7 +154,12 @@ pub fn parse_line<TR: TargetReader, DP: DataParse>(tr: &TR, dp: &DP, line: &str)
             None
         }
     });
-    let peeked = IterCons(maybe_qid, pieces);
+    let peeked = if qid.is_some() {
+        IterCons(None, pieces)
+    } else {
+        IterCons(maybe_qid, pieces)
+    };
+
     let vec = dp.parse(peeked);
 
     match (target, vec) {
@@ -165,8 +171,20 @@ pub fn parse_line<TR: TargetReader, DP: DataParse>(tr: &TR, dp: &DP, line: &str)
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use types::*;
     #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
+    fn parse_line_1() {
+        let sd = SparseData(12);
+        let td = DisjointClassification;
+
+        let s = "1 qid:1234 0:-13 11:10 # hello";
+        let srow = parse_line(&td, &sd, s);
+        assert!(srow.is_some());
+        let row = srow.unwrap();
+
+        assert_eq!(row.y, 1usize);
+        assert_eq!(row.qid, Some(1234));
+        assert_eq!(row.comment, Some(" hello".into()));
     }
 }

@@ -21,7 +21,7 @@ pub trait DataParse {
     fn parse<'a, I: Iterator<Item=&'a str>>(&self, xs: I) -> Option<Self::Out>;
 }
 
-#[derive(Debug)]
+#[derive(Debug,Clone,PartialEq,Eq)]
 pub struct DenseData;
 
 impl DataParse for DenseData {
@@ -34,7 +34,7 @@ impl DataParse for DenseData {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug,Clone,PartialEq,Eq)]
 pub struct SparseData(pub usize);
 
 impl DataParse for SparseData {

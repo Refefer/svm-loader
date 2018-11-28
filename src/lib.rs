@@ -23,6 +23,20 @@ impl TargetReader for Regression {
     }
 }
 
+pub struct BinaryClassification;
+
+impl TargetReader for BinaryClassification {
+    type Out = bool;
+
+    fn process(&self, data: &str) -> Option<Self::Out> {
+        match data {
+            "-1" => Some(false),
+            "1"  => Some(true),
+            _    => None
+        }
+    }
+}
+
 pub struct DisjointClassification;
 
 impl TargetReader for DisjointClassification {
@@ -186,5 +200,20 @@ mod tests {
         assert_eq!(row.y, 1usize);
         assert_eq!(row.qid, Some(1234));
         assert_eq!(row.comment, Some(" hello".into()));
+    }
+
+    fn parse_bool_1() {
+        let sd = SparseData(12);
+        let td = BinaryClassification;
+
+        let s2 = "-1 qid:1234 0:-13 11:10 # hello";
+        let srow = parse_line(&td, &sd, s2);
+        assert!(srow.is_some());
+        let row = srow.unwrap();
+
+        assert_eq!(row.y, false);
+        assert_eq!(row.qid, Some(1234));
+        assert_eq!(row.comment, Some(" hello".into()));
+
     }
 }
